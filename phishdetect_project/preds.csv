@@ -1,0 +1,5 @@
+url,domain,prob_phish,pred,pred_label
+http://paypal.com.verify-login-update.ru,verify-login-update.ru,0.71,1,phish
+https://accounts.google.com/login,google.com,0.04,0,benign
+http://secure-bank-example.xyz/reset-password,secure-bank-example.xyz,0.995,1,phish
+https://github.com,github.com,0.0,0,benign

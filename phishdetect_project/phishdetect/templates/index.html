@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PhishDetect · URL Checker</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .card { background: white; border-radius: 12px; box-shadow: 0 6px 24px rgba(15,23,42,0.08); padding: 24px; }
+    .phish { background:#fff1f2; color:#9f1239; padding:8px 12px; border-radius:8px; font-weight:600; }
+    .benign { background:#ecfdf5; color:#065f46; padding:8px 12px; border-radius:8px; font-weight:600; }
+    .small-muted { color:#6b7280; font-size:0.9rem; }
+    pre { white-space: pre-wrap; word-break:break-word; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+<header class="bg-white shadow-sm py-3 px-6 flex justify-between items-center">
+  <div class="text-xl font-semibold">🛡️ PhishDetect</div>
+  <nav class="flex items-center space-x-4">
+    <a href="{{ url_for('landing') }}" class="text-gray-700 hover:text-blue-600">Home</a>
+    {% if current_user.is_admin %}
+      <a href="{{ url_for('view_reports') }}" class="text-gray-700 hover:text-blue-600">Reports</a>
+    {% endif %}
+    <a href="{{ url_for('logout') }}" class="text-red-600 hover:underline">Logout</a>
+  </nav>
+</header>
+
+  <main class="max-w-4xl mx-auto py-12 px-4">
+    <div class="card">
+      <h1 class="text-2xl font-bold text-gray-800 mb-2">URL Checker</h1>
+      <p class="small-muted mb-6">Enter a URL to check if it might be phishing. Logged-in users can also report suspicious URLs.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mt-4">
+        <div class="md:col-span-2">
+          <label class="small-muted">URL</label>
+          <input id="urlInput" type="text" placeholder="https://example.com" class="w-full border rounded-lg p-3 mt-1">
+        </div>
+        <div>
+          <label class="small-muted">Threshold</label>
+          <input id="thresholdInput" type="number" step="0.01" value="0.50" class="w-full border rounded-lg p-3 mt-1 text-center">
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 mt-4">
+        <button id="checkBtn" class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">Check URL</button>
+        <div id="singleStatus" class="ml-2"></div>
+        {% if current_user.is_authenticated %}
+          <button id="reportBtn" class="hidden ml-3 bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Report this URL</button>
+        {% endif %}
+      </div>
+
+      <div id="singleResult" class="mt-4"></div>
+    </div>
+
+    
+  </main>
+
+  <!-- Report modal -->
+  <div id="reportModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+    <div class="bg-white rounded-lg p-4 w-full max-w-lg">
+      <h2 class="text-lg font-semibold mb-2">Report URL</h2>
+      <p class="text-sm mb-2">URL: <span id="reportUrlPreview" class="font-mono text-gray-700"></span></p>
+      <textarea id="reportComment" class="w-full border rounded p-2" placeholder="Optional comment..."></textarea>
+      <div class="mt-3 flex gap-2">
+        <button id="sendReportBtn" class="bg-yellow-600 text-white px-4 py-2 rounded">Send Report</button>
+        <button id="closeReportBtn" class="px-4 py-2 border rounded">Cancel</button>
+      </div>
+      <div id="reportStatus" class="mt-2 text-sm"></div>
+    </div>
+  </div>
+
+  <script>
+    const checkBtn = document.getElementById("checkBtn");
+    const urlInput = document.getElementById("urlInput");
+    const thresholdInput = document.getElementById("thresholdInput");
+    const singleStatus = document.getElementById("singleStatus");
+    const singleResult = document.getElementById("singleResult");
+    const reportBtn = document.getElementById("reportBtn");
+    const reportModal = document.getElementById("reportModal");
+    const closeReportBtn = document.getElementById("closeReportBtn");
+    const sendReportBtn = document.getElementById("sendReportBtn");
+    const reportUrlPreview = document.getElementById("reportUrlPreview");
+    const reportComment = document.getElementById("reportComment");
+    const reportStatus = document.getElementById("reportStatus");
+
+    async function postJson(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    checkBtn.addEventListener("click", async () => {
+      singleStatus.textContent = "";
+      singleResult.innerHTML = "";
+      if (reportBtn) reportBtn.classList.add("hidden");
+
+      const url = urlInput.value.trim();
+      if (!url) {
+        singleStatus.textContent = "Please enter a URL.";
+        return;
+      }
+      const threshold = parseFloat(thresholdInput.value);
+      singleStatus.textContent = "Checking...";
+      try {
+        const json = await postJson("/api/predict", { urls: [url], threshold });
+        const p = json.prob[0];
+        const pred = json.pred[0] === 1 ? "Phishing" : "Benign";
+
+        const badge = document.createElement("span");
+        badge.className = json.pred[0] === 1 ? "phish" : "benign";
+        badge.textContent = `${pred} (prob=${p.toFixed(4)})`;
+        singleResult.appendChild(badge);
+
+        const d = document.createElement("div");
+        d.className = "small-muted mt-2";
+        d.innerHTML = `<b>URL</b>: <pre>${escapeHtml(url)}</pre>`;
+        singleResult.appendChild(d);
+
+        singleStatus.textContent = "";
+        if (reportBtn) reportBtn.classList.remove("hidden");
+      } catch (err) {
+        singleStatus.textContent = "Error: " + err.message;
+      }
+    });
+
+    if (reportBtn) {
+      reportBtn.addEventListener("click", () => {
+        reportUrlPreview.textContent = urlInput.value.trim();
+        reportComment.value = "";
+        reportStatus.textContent = "";
+        reportModal.classList.remove("hidden");
+      });
+      closeReportBtn.addEventListener("click", () => reportModal.classList.add("hidden"));
+      sendReportBtn.addEventListener("click", async () => {
+        reportStatus.textContent = "Sending...";
+        try {
+          const res = await fetch("/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: reportUrlPreview.textContent, comment: reportComment.value })
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error || "Error");
+          reportStatus.textContent = "Report submitted ✔️";
+          setTimeout(() => reportModal.classList.add("hidden"), 1200);
+        } catch (err) {
+          reportStatus.textContent = "Error: " + err.message;
+        }
+      });
+    }
+
+    function escapeHtml(unsafe) {
+      return unsafe.replace(/[&<"']/g, m => ({'&':'&amp;','<':'&lt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+  </script>
+</body>
+</html>

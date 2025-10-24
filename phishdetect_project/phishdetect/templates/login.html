@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Login — PhishDetect</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-md bg-white rounded-lg shadow p-6">
+    <h2 class="text-2xl font-bold mb-4">Login</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="mb-3 text-sm {{ 'text-green-700' if cat=='success' else 'text-red-700' }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('login') }}">
+      <label class="block text-sm font-medium text-gray-700">Email</label>
+      <input name="email" type="email" class="w-full border rounded p-2 mb-3" required />
+
+      <label class="block text-sm font-medium text-gray-700">Password</label>
+      <input name="password" type="password" class="w-full border rounded p-2 mb-4" required />
+
+      <div class="flex items-center justify-between">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Login</button>
+        <a href="{{ url_for('register') }}" class="text-sm text-gray-600 underline">Create account</a>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

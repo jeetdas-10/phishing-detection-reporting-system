@@ -1,0 +1,11 @@
+pandas
+scikit-learn
+flask==2.2.5
+flask-login==0.6.2
+flask-pymongo
+tldextract
+joblib
+pymongo                # (installed automatically with flask-pymongo, but okay to list)
+email-validator==1.3.1 # optional, used for validating emails if you add it later
+python-dotenv==1.0.0   # optional if you decide to use .env files
+itsdangerous==2.1.2    # comes with Flask but fine to list
